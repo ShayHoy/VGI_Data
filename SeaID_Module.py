@@ -1,4 +1,8 @@
 def SeaID_toPandas(VesselID, filename):
+    import pandas as pd
+    import numpy as np
+    import os
+
 
     # Parse Log File
     fp = filename
@@ -46,40 +50,50 @@ def SeaID_toPandas(VesselID, filename):
     if 'Lat' in data.columns:
         data = data.drop(['Lat', 'Long', 'LatTemp', 'LongTemp', 'LatN', 'LongN'], axis=1)
 
+    return data
+
+def SeaID_toGeoPandas(pandasDF):
+    import geopandas as gpd
+    from shapely.geometry import Point
     # Convert pandas to geodataframe
-    geometry = [Point(xy) for xy in zip(data.LongDD, data.LatDD)]
+
+    pandas = pandasDF.copy(deep=True)
+    geometry = [Point(xy) for xy in zip(pandas.LongDD, pandas.LatDD)]
 
     # Set Coordinate System to WGS84
     crs = {'init': 'epsg:4326'}
+    geoData = gpd.GeoDataFrame(pandas, crs=crs, geometry=geometry)
 
-    geoData = gpd.GeoDataFrame(data, crs=crs, geometry=geometry)
-
-    return data, geoData
+    return geoData
 
 def processDir(DirPath):
-
     import pandas as pd
-    import numpy as np
     import geopandas as gpd
-    from shapely.geometry import Point
     import os
+
+    direc = DirPath + '/'
     vesselID = os.path.basename(DirPath)
     DATA = pd.DataFrame(columns=['VesselID', 'FileName', 'Epoch', 'Depth', 'Lat', 'Long'])
     GEODATA = gpd.GeoDataFrame(columns=['VesselID', 'FileName', 'Epoch', 'Depth', 'Lat', 'Long', 'geometry'])
 
-    for f in os.listdir(DirPath):
-        data, geoData = SeaID_toPandas(vesselID, f)
-        DATA.append(data)
-        GEODATA.append(geoData)
-        print(f + 'processed')
-        return DATA, GEODATA
+    files = os.listdir(DirPath)
+    numFiles = len(files)
+    i = 0
+    for f in files:
+        filepath = os.path.join(direc, f)
+        data = SeaID_toPandas(vesselID, filepath)
+        geoData = SeaID_toGeoPandas(data)
+        DATA = DATA.append(data)
+        GEODATA = GEODATA.append(geoData)
+        i = i + 1
+        print(f + ' processed ' + str(i) + ' of ' + str(numFiles))
 
-    outDir ='/home/mapper/VGI_Data/ProcessedData'
-    outNameCSV = '%s.csv' %vesselID
+    outDir = '/home/mapper/VGI_Data/ProcessedData'
+    outNameCSV = '%s.csv' % vesselID
     outPathCSV = os.path.join(outDir, outNameCSV)
     DATA.to_csv(outPathCSV)
 
-    outNameSHP = '%s.shp' %vesselID
+    outNameSHP = '%s.shp' % vesselID
     outPathSHP = os.path.join(outDir, outNameSHP)
     GEODATA.to_file(outPathSHP)
 
