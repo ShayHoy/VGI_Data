@@ -48,7 +48,7 @@ def SeaID_toPandas(VesselID, filename):
     data['LongDD'] = np.select(conditionsLong, choicesLong, default=np.nan)
 
     if 'Lat' in data.columns:
-        data = data.drop(['Lat', 'Long', 'LatTemp', 'LongTemp', 'LatN', 'LongN'], axis=1)
+        data = data.drop(['Lat', 'Long', 'LatTemp', 'LongTemp', 'LatN', 'LongN'], axis=1, inplace=True)
 
     return data
 
@@ -91,11 +91,11 @@ def processDir(DirPath):
     outDir = '/home/mapper/VGI_Data/ProcessedData'
     outNameCSV = '%s.csv' % vesselID
     outPathCSV = os.path.join(outDir, outNameCSV)
-    DATA.to_csv(outPathCSV)
+    DATA.to_csv(outPathCSV, columns=['VesselID', 'FileName', 'Epoch', 'Depth', 'Lat', 'Long'], index=False)
 
     outNameSHP = '%s.shp' % vesselID
     outPathSHP = os.path.join(outDir, outNameSHP)
-    GEODATA.to_file(outPathSHP)
+    GEODATA.to_file(outPathSHP, columns=['VesselID', 'FileName', 'Epoch', 'Depth', 'Lat', 'Long', 'geometry'], index=False)
 
 
 
