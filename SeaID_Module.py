@@ -49,7 +49,13 @@ def SeaID_toPandas(VesselID, filename):
     if 'Lat' in data.columns:
         data = data.drop(['Lat', 'Long', 'LatTemp', 'LongTemp', 'LatN', 'LongN'], axis=1)
 
-    return data
+    # remove outliers
+    maskLat = abs(data['LatDD'].diff()) < .02
+    filtered = data.loc[maskLat]
+    maskLong = abs(data['LongDD'].diff()) < .02
+    filtered = filtered.loc[maskLong]
+
+    return filtered
 
 def SeaID_toGeoPandas(pandasDF):
     import geopandas as gpd
@@ -62,6 +68,7 @@ def SeaID_toGeoPandas(pandasDF):
     # Set Coordinate System to WGS84
     crs = {'init': 'epsg:4326'}
     geoData = gpd.GeoDataFrame(pandas, crs=crs, geometry=geometry)
+    geoData.crs = {'init': 'epsg:4326'}
     # Make LineString DataFrame
     geoData = geoData.groupby(['FileName'])['geometry'].apply(lambda x: LineString(x.tolist()))
     geoDataLine = gpd.GeoDataFrame(geoData, geometry='geometry', crs=crs).reset_index()
