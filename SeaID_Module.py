@@ -3,7 +3,6 @@ def SeaID_toPandas(VesselID, filename):
     import numpy as np
     import os
 
-
     # Parse Log File
     fp = filename
     data = pd.read_csv(fp, sep='|', names=['Epoch', 'Depth', 'Lat', 'Long'])
@@ -48,13 +47,13 @@ def SeaID_toPandas(VesselID, filename):
     data['LongDD'] = np.select(conditionsLong, choicesLong, default=np.nan)
 
     if 'Lat' in data.columns:
-        data = data.drop(['Lat', 'Long', 'LatTemp', 'LongTemp', 'LatN', 'LongN'], axis=1, inplace=True)
+        data = data.drop(['Lat', 'Long', 'LatTemp', 'LongTemp', 'LatN', 'LongN'], axis=1)
 
     return data
 
 def SeaID_toGeoPandas(pandasDF):
     import geopandas as gpd
-    from shapely.geometry import Point
+    from shapely.geometry import Point, LineString
     # Convert pandas to geodataframe
 
     pandas = pandasDF.copy(deep=True)
@@ -63,8 +62,11 @@ def SeaID_toGeoPandas(pandasDF):
     # Set Coordinate System to WGS84
     crs = {'init': 'epsg:4326'}
     geoData = gpd.GeoDataFrame(pandas, crs=crs, geometry=geometry)
+    # Make LineString DataFrame
+    geoData = geoData.groupby(['FileName'])['geometry'].apply(lambda x: LineString(x.tolist()))
+    geoDataLine = gpd.GeoDataFrame(geoData, geometry='geometry', crs=crs).reset_index()
 
-    return geoData
+    return geoDataLine
 
 def processDir(DirPath):
     import pandas as pd
@@ -73,8 +75,8 @@ def processDir(DirPath):
 
     direc = DirPath + '/'
     vesselID = os.path.basename(DirPath)
-    DATA = pd.DataFrame(columns=['VesselID', 'FileName', 'Epoch', 'Depth', 'Lat', 'Long'])
-    GEODATA = gpd.GeoDataFrame(columns=['VesselID', 'FileName', 'Epoch', 'Depth', 'Lat', 'Long', 'geometry'])
+    DATA = pd.DataFrame(columns=['VesselID', 'FileName', 'Epoch', 'Depth', 'LatDD', 'LongDD'])
+    GEODATA = gpd.GeoDataFrame(columns=['FileName', 'geometry'])
 
     files = os.listdir(DirPath)
     numFiles = len(files)
@@ -82,20 +84,20 @@ def processDir(DirPath):
     for f in files:
         filepath = os.path.join(direc, f)
         data = SeaID_toPandas(vesselID, filepath)
-        geoData = SeaID_toGeoPandas(data)
+        geoDataLine = SeaID_toGeoPandas(data)
         DATA = DATA.append(data)
-        GEODATA = GEODATA.append(geoData)
+        GEODATA = GEODATA.append(geoDataLine)
         i = i + 1
         print(f + ' processed ' + str(i) + ' of ' + str(numFiles))
 
     outDir = '/home/mapper/VGI_Data/ProcessedData'
     outNameCSV = '%s.csv' % vesselID
     outPathCSV = os.path.join(outDir, outNameCSV)
-    DATA.to_csv(outPathCSV, columns=['VesselID', 'FileName', 'Epoch', 'Depth', 'Lat', 'Long'], index=False)
+    DATA.to_csv(outPathCSV, columns=['VesselID', 'FileName', 'Epoch', 'Depth', 'LatDD', 'LongDD'], index=False)
 
     outNameSHP = '%s.shp' % vesselID
     outPathSHP = os.path.join(outDir, outNameSHP)
-    GEODATA.to_file(outPathSHP, columns=['VesselID', 'FileName', 'Epoch', 'Depth', 'Lat', 'Long', 'geometry'], index=False)
+    GEODATA.to_file(outPathSHP)
 
 
 
